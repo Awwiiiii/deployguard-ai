@@ -8,6 +8,10 @@ Work only in the operator-selected DeployGuard AI repository root. Use the exist
 the default `evidence/deployguard.sqlite3` shared with the API at
 **http://127.0.0.1:8001**. Never change ports or select another database yourself.
 Your process must receive no human credential or `DEPLOYGUARD_HUMAN_SECRET`.
+The protected browser operator gateway on port 8003 is human-only. Never access it,
+its native authentication, operator cookies, or a human browser profile. Do not
+start the gateway or use its privileges; the allowed agent commands below remain
+unchanged. This instruction does not establish OS isolation.
 
 ## Project-local commands
 

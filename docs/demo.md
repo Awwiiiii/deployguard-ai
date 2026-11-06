@@ -1,5 +1,21 @@
 # Reproducible demonstration
 
+## Website-first demonstration
+
+Use the [Incident Command Center runbook](dashboard.md) for the current primary
+demo. Start the API, frontend, and protected human operator gateway once, then use
+the website for evidence, native authentication, scoped approval, explicit rollback,
+verification, automatic refresh, and audit history. The only in-demo terminal action
+is `tools/reset_demo.py`. The gateway observes the newly activated faulty release
+once automatically; no curl is required. Do not run the staged CLI preparation below
+at the same time as the website demonstration. The existing CLI flow is retained
+as a fallback and historical operator-tested workflow.
+
+The new browser flow is tested with real HTTP services, isolated data, and synthetic
+credentials. The operator's actual credential was not accessed during implementation.
+The separate gateway remains a trusted-machine localhost demo; read the
+[security limitations](operator-security.md) before the demonstration.
+
 ## Current live-tested Switch demonstration
 
 The operator successfully demonstrated **AI-assisted analysis with human-executed

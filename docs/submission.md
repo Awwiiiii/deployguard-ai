@@ -25,7 +25,18 @@ only once. Release change and approval consumption commit atomically.
 - Human-only approval issuance and allowlisted rollback from `v1.1.0` to `v1.0.0`.
 - Five checks: version, health, checkout, matching audit event, and persisted deployment.
 - Verification retry without repeating rollback when post-execution checks fail.
-- A reproducible operator demo and **60 passing automated tests**.
+- A six-page React/TypeScript Incident Command Center: overview, incident investigation,
+  recovery evidence and protected operator controls, audit activity, Switch collaboration scope, and preferences.
+- Dark/light/system themes, responsive layouts, actual-evidence investigation briefs,
+  configurable read-only refresh, and local non-sensitive settings.
+- A separate script-free localhost operator console: native browser authentication,
+  CSRF-protected scoped approval, typed execution confirmation, actual rollback and
+  five verification checks, using the unchanged backend authorization functions.
+- Automatic real failure observation once per new deployment; the only in-demo
+  terminal action is activating the fault with reset_demo.py.
+- A reproducible operator demo, **98 passing backend tests**, **23 frontend tests**,
+  and a complete real-HTTP browser recovery test plus cross-origin mutation rejection.
+  All original 60 backend tests continue to pass.
 
 ## Demonstrated Switch contribution
 
@@ -45,6 +56,10 @@ operator-reported and separate from the isolated automated suite.
 ## Architecture and technology
 
 Python 3.12, FastAPI/Uvicorn, SQLite, HTTPX, and Pytest form the local backend.
+React, TypeScript, Vite, Tailwind CSS v4, Lucide, Motion for React, React Router,
+and TanStack Query power the frontend at loopback port 5173. Its allowlisted proxy
+only reads persisted API state; it never polls the observation-writing `/health`.
+The new `/status` endpoint is read-only and does not access human credentials.
 The API and CLI tools share a project-local database, with the API on loopback port
 8001. Switch/Mattermost supplies the demonstrated human–AI collaboration surface.
 No AI API key or cloud account is required for the backend or tests. See
@@ -52,15 +67,17 @@ No AI API key or cloud account is required for the backend or tests. See
 
 ## How to evaluate
 
-1. Follow [local setup](../README.md#local-setup) and the [staged demo](demo.md).
+1. Follow [dashboard setup](dashboard.md) and the [staged demo](demo.md). Restart
+   the backend to register `/status`, then open http://127.0.0.1:5173.
 2. Observe failed checkout and rejection of rollback without persisted approval.
 3. Have the human issue fresh scoped approval and execute recovery locally.
 4. Confirm all five checks and the resolved incident in measured output.
 5. Optionally relay reviewed evidence/results to Buddy in an existing Switch environment.
 6. Run `env -u DEPLOYGUARD_HUMAN_SECRET -u DEPLOYGUARD_DB .venv/bin/python -m pytest -q`.
 
-The submission-preparation run on 2026-11-07 passed **60 tests in 7.28 seconds**
-with one existing Starlette/HTTPX deprecation warning. Coverage includes denial cases,
+The original submission-preparation run passed 60 tests. The website-first
+regression run on 2026-11-07 passed **98 backend tests in 13.44 seconds**, with one
+existing Starlette/HTTPX deprecation warning. Coverage includes denial cases,
 synthetic credential checks, single use/concurrency, transaction rollback, verification
 failure/retry, evidence integrity, and demo orchestration. See [test results](test-results.md).
 
@@ -71,9 +88,16 @@ autonomous monitoring, automatic Switch evidence delivery, or autonomous recover
 Same-user write access to code or SQLite can bypass the demo approval mechanism;
 agent instructions alone do not establish isolation. The API is unauthenticated and
 intended for loopback use. Local audit storage is not tamper-resistant.
+Browser approval and rollback are implemented and tested end to end using isolated
+storage and a synthetic credential. The real human credential/live recovery were not
+rerun during implementation. The separate gateway uses HTTP on trusted loopback and
+browser-native credential caching; it is not production TLS/identity/OS isolation.
+When unavailable, browser controls say so and the existing CLI remains functional.
+Specialist agents remain stopped and receive no operator credentials or privileges.
 
 Next steps are mediated specialist tools and process isolation, a validated Switch
 handoff with human approval retained, automatic evidence delivery, real recovery
-adapters, and a separate authenticated approval service with durable audit protection.
-Dependency locking and CI would improve reproducibility. Private evidence, credentials,
+adapters, and production identity/session management with durable audit protection.
+Backend dependency locking and CI would improve reproducibility; frontend dependencies
+have an npm lockfile. Private evidence, credentials,
 runtime databases, and local configuration are excluded from this submission.

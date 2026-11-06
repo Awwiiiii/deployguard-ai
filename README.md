@@ -19,13 +19,53 @@ agents are registered but remain stopped. Their tool integration is planned.
 | Human approval and rollback | Live-tested: approval is required before human-executed rollback to `v1.0.0`. |
 | Recovery verification | Live-tested: all five checks pass: `version`, `health`, `checkout`, `audit`, `persisted_deployment`. |
 | Switch/Mattermost analysis | Live-tested by the operator: manually supplied evidence was analyzed by Switch Buddy, which also supplied the final resolution assessment. |
-| Backend regression suite | **60 automated tests passed**; isolated test coverage includes approval rejection, atomicity, concurrency, and verification failure/retry. See [test results](docs/test-results.md). |
+| Backend regression suite | **98 automated tests passed**, including all original 60; coverage includes the original approval invariants, read-only polling, native authentication, CSRF, session isolation, gateway concurrency, and verification retry. See [test results](docs/test-results.md). |
+| Incident Command Center | Six React/TypeScript pages with real API data, themes, investigation briefs, audit history, and protected browser recovery. See [website-first demo](docs/dashboard.md). |
+| Browser recovery | Real-HTTP Chromium testing covers automatic failure detection, browser-native human authentication, scoped approval, explicit rollback, five checks, automatic dashboard refresh, and audit. Tests use isolated storage and synthetic credentials; the real human credential was not accessed. |
 | Dedicated agent workflow | Prepared instructions and JSON CLIs; Investigator and Recovery agents remain stopped. Automated handoff, evidence ingestion, and agent-executed recovery are unverified/planned. |
 
 Implemented features also include SQLite persistence, incident deduplication,
 read-only investigation, explicitly recorded investigation reports, an allowlisted
-atomic rollback, audit history, and a staged operator demo. There is no frontend or
-real infrastructure recovery adapter. See the [hackathon submission](docs/submission.md).
+atomic rollback, audit history, a staged operator demo, and the Incident Command Center.
+Recovery is human-operated through a separate localhost browser operator console or
+the existing CLI. No real infrastructure recovery adapter is implemented. See the
+[hackathon submission](docs/submission.md) and [operator security boundary](docs/operator-security.md).
+
+### Run the Incident Command Center
+
+Start or restart the updated backend in one terminal:
+
+```bash
+cd /home/awnish/projects/deployguard-ai
+env -u DEPLOYGUARD_HUMAN_SECRET -u DEPLOYGUARD_DB .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Start the protected operator gateway in a second terminal. It never loads a human
+credential from the environment; sign-in happens through the browser-owned dialog:
+
+```bash
+cd /home/awnish/projects/deployguard-ai
+env -u DEPLOYGUARD_HUMAN_SECRET -u DEPLOYGUARD_DB .venv/bin/python -m uvicorn app.operator:app --host 127.0.0.1 --port 8003 --workers 1 --no-access-log --no-proxy-headers
+```
+
+Start the frontend in a third terminal (Node 22.12+ or Node 24 recommended):
+
+```bash
+cd /home/awnish/projects/deployguard-ai/frontend
+npm ci
+env -u DEPLOYGUARD_HUMAN_SECRET npm run dev
+```
+
+Open **http://127.0.0.1:5173**. The dashboard never probes `/health` or posts to
+`/checkout`. It refreshes persisted data every five seconds by default. The separate
+gateway records one real observation per newly activated, unobserved release. Settings
+provides theme, polling, timezone, accessibility, and Mattermost room preferences.
+During the demo, only `tools/reset_demo.py` fault activation needs the terminal.
+Authenticate, issue approval, explicitly execute, and review checks in the protected
+browser console linked from Recovery Center. Username: **operator**; enter the existing
+human credential only into the browser's native dialog. The gateway is a trusted-machine,
+loopback HTTP demo, not enterprise authentication. Use a private window and close it
+afterward. See [setup, demo instructions, file inventory, and limitations](docs/dashboard.md).
 
 ## Architecture
 
@@ -38,6 +78,11 @@ changes the release in one transaction, then HTTPX verifies the running service.
 ```mermaid
 flowchart LR
   API[FastAPI checkout :8001] -->|observed failures| DB[(Local SQLite)]
+  UI[React Command Center :5173] -->|read-only Vite proxy| API
+  H -->|browser-native human authentication| G[Script-free operator gateway :8003]
+  UI -->|separate browser tab| G
+  G -->|original scoped approval and atomic rollback functions| DB
+  G -->|actual HTTP verification| API
   DB -->|read-only incident CLI| H[Human operator]
   H -->|manual evidence relay| S[Switch Buddy in Mattermost]
   S -->|analysis and assessment| H
@@ -72,6 +117,7 @@ See [agent integration and required permissions](docs/agent-integration.md),
 | --- | --- |
 | `GET /health` | 200 healthy or 503 unhealthy; records a real observation |
 | `GET /version` | Active version and deployment instance ID |
+| `GET /status` | Read-only persisted observations, active deployment, recovery checks, and non-credential approval metadata; never probes service health |
 | `POST /checkout` | JSON `{"quantity":1}`; 200 success or 500 release failure |
 | `GET /incidents` | Incident history and latest evidence |
 | `GET /incidents/{incident_id}` | Incident details; 404 if absent |
