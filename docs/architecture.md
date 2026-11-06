@@ -1,6 +1,8 @@
 # DeployGuard AI architecture
 
 Implemented local MVP: Python 3.12, FastAPI, Uvicorn, SQLite, HTTPX, and Pytest.
+The Incident Command Center adds React/TypeScript, Vite, Tailwind CSS v4, Lucide,
+Motion, React Router, and TanStack Query as a separate read-only frontend.
 Only the local simulated checkout release is affected. No infrastructure adapter exists.
 
 ```mermaid
@@ -8,11 +10,47 @@ flowchart LR
   H[Human operator] -->|credential only in approval process| A[approve.py]
   A -->|scoped approval record| DB[(Project SQLite)]
   API[Checkout API :8001] -->|observed requests and failures| DB
+  UI[Command Center :5173] -->|allowlisted read-only proxy| API
+  UI -->|separate browser tab| G[Human operator gateway :8003]
+  H -->|native HTTP authentication and CSRF forms| G
+  G -->|original scoped approval and atomic rollback functions| DB
+  G -->|one observation per new release and recovery verification| API
   I[incident.py] -->|SQLite read-only snapshot| DB
   R[rollback.py] -->|atomic approval validation and release switch| DB
   R -->|HTTP version, health, checkout, audit| API
   P[report.py] -->|untrusted investigation summary| DB
 ```
+
+## Dashboard boundary
+
+The six-page frontend reads `/status`, `/incidents`, `/incidents/{id}`,
+`/deployments`, and `/audit` through a fixed loopback proxy. `/version` is also
+allowlisted. The proxy rejects browser mutations and excludes `/health` and
+`/checkout`; periodic reads therefore do not create observations or incidents.
+`GET /status` opens a read-only SQLite snapshot for persisted observations,
+deployments, recoveries, and non-credential approval metadata. It never selects
+`human_auth` or changes the existing schema.
+
+API connectivity and recorded service health are distinct. With no observation
+for the active deployment, the frontend displays Unobserved. Stale evidence is
+identified when a refresh fails. No mock records replace unavailable backend data.
+
+Only allowlisted display preferences and an HTTP(S) Mattermost room link persist
+locally. Browser JavaScript never reads SQLite or handles the human credential.
+Protected browser recovery uses the separate human operator gateway on port 8003,
+with native HTTP authentication, script-free HTML forms, exact origin/host checks,
+HttpOnly sessions, and rotating CSRF tokens. It calls the original approval and
+atomic rollback functions without accepting targets, approval IDs, API destinations,
+database paths, or commands from the browser. The frontend only proxies a read-only
+gateway availability check; credential-bearing requests never pass through React or
+the frontend proxy. CLI recovery remains supported. See
+[operator threat model](operator-security.md) and [website demo](dashboard.md).
+
+The gateway startup monitor reads persisted deployment state every two seconds and
+issues one actual HTTP health observation for a newly activated release without an
+existing observation. Dashboard polling remains pure reads. Automatic detection is
+therefore separate from read-only status inspection; it does not fabricate incidents
+or accumulate repeated failure observations on each UI refresh.
 
 ## Release and evidence model
 

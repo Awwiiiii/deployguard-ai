@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.database import Database, active_deployment, decode
-from app.models import APPLICATION, CheckoutRequest, DomainError
+from app.models import APPLICATION, BAD_RELEASE, GOOD_RELEASE, CheckoutRequest, DomainError
 from app.state import investigate, observe
 
 
@@ -37,6 +37,27 @@ def create_app(db_path=None):
             deployment = active_deployment(connection)
         return {"application": APPLICATION, "version": deployment["version"],
                 "deployment_id": deployment["id"]}
+
+    @application.get("/status")
+    def status_snapshot():
+        """Read one persisted snapshot. Never probe, write, or read human credentials."""
+        with database.read() as connection:
+            deployment = active_deployment(connection)
+            observations = [decode(row, "result") for row in connection.execute(
+                "SELECT * FROM observations WHERE deployment_id=? ORDER BY timestamp DESC LIMIT 60",
+                (deployment["id"],))]
+            recoveries = [decode(row, "verification") for row in connection.execute(
+                "SELECT * FROM recoveries ORDER BY executed_at DESC")]
+            # Approval records are authorization metadata, never human_auth credentials.
+            approvals = [dict(row) for row in connection.execute(
+                "SELECT id, incident_id, action, target_version, created_at, expires_at, consumed_at "
+                "FROM approvals ORDER BY created_at DESC")]
+        return {"application": APPLICATION, "api_version": application.version,
+                "active_deployment": deployment,
+                "service_status": {"basis": "persisted observations; no live probe performed",
+                                   "latest_observation": observations[0] if observations else None},
+                "observations": observations, "recoveries": recoveries, "approvals": approvals,
+                "available_rollback_target": GOOD_RELEASE if deployment["version"] == BAD_RELEASE else None}
 
     @application.post("/checkout")
     def checkout(order: CheckoutRequest):
